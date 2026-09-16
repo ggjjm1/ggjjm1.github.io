@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Meow Morse Translator</title>
+
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: #eeeeee;
+      color: #222222;
+    }
+
+    .app {
+      width: min(950px, 100%);
+      padding: 28px;
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 10px 35px rgba(0, 0, 0, 0.12);
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      text-align: center;
+      font-size: 30px;
+    }
+
+    .description {
+      margin: 0 auto 24px;
+      max-width: 680px;
+      color: #666666;
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    .translator-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 22px;
+    }
+
+    .panel {
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+
+    label {
+      font-weight: bold;
+      font-size: 15px;
+    }
+
+    textarea,
+    .output {
+      width: 100%;
+      min-height: 170px;
+      padding: 14px;
+      border: 1px solid #bbbbbb;
+      border-radius: 9px;
+      font: 16px/1.5 monospace;
+      resize: vertical;
+      overflow-wrap: anywhere;
+    }
+
+    textarea {
+      background: #ffffff;
+      color: #222222;
+    }
+
+    textarea:focus {
+      outline: 3px solid rgba(55, 125, 255, 0.25);
+      border-color: #377dff;
+    }
+
+    .output {
+      background: #f7f7f7;
+      white-space: pre-wrap;
+    }
+
+    .help {
+      margin: 22px 0 0;
+      padding: 13px;
+      border-radius: 8px;
+      background: #f4f4f4;
+      color: #666666;
+      font: 14px/1.5 monospace;
+      text-align: center;
+    }
+
+    @media (max-width: 700px) {
+      .translator-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .app {
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="app">
+    <h1>Meow Morse Translator</h1>
+
+    <p class="description">
+      Morse dots use lowercase letters from <code>meow</code>.
+      Morse dashes use uppercase letters from <code>MEOW</code>.
+    </p>
+
+    <div class="translator-grid">
+      <section class="panel">
+        <label for="normalInput">Normal text</label>
+
+        <textarea
+          id="normalInput"
+          placeholder="Type normal text here..."
+          spellcheck="false"
+        ></textarea>
+
+        <label for="normalOutput">Encoded output</label>
+
+        <div id="normalOutput" class="output"></div>
+      </section>
+
+      <section class="panel">
+        <label for="morseInput">Morse-encoded text</label>
+
+        <textarea
+          id="morseInput"
+          placeholder="Type meow Morse here..."
+          spellcheck="false"
+        ></textarea>
+
+        <label for="morseOutput">Decoded output</label>
+
+        <div id="morseOutput" class="output"></div>
+      </section>
+    </div>
+
+    <div class="help">
+      Use / between words.<br />
+      Use | between letters when decoding, for example:
+      meoW|MEow|mEOW
+    </div>
+  </main>
+
+  <script>
+    const MORSE_TABLE = {
+      A: ".-",
+      B: "-...",
+      C: "-.-.",
+      D: "-..",
+      E: ".",
+      F: "..-.",
+      G: "--.",
+      H: "....",
+      I: "..",
+      J: ".---",
+      K: "-.-",
+      L: ".-..",
+      M: "--",
+      N: "-.",
+      O: "---",
+      P: ".--.",
+      Q: "--.-",
+      R: ".-.",
+      S: "...",
+      T: "-",
+      U: "..-",
+      V: "...-",
+      W: ".--",
+      X: "-..-",
+      Y: "-.--",
+      Z: "--..",
+
+      0: "-----",
+      1: ".----",
+      2: "..---",
+      3: "...--",
+      4: "....-",
+      5: ".....",
+      6: "-....",
+      7: "--...",
+      8: "---..",
+      9: "----."
+    };
+
+    const REVERSE_MORSE_TABLE = Object.fromEntries(
+      Object.entries(MORSE_TABLE).map(([letter, code]) => [code, letter])
+    );
+
+    const normalInput = document.getElementById("normalInput");
+    const morseInput = document.getElementById("morseInput");
+    const normalOutput = document.getElementById("normalOutput");
+    const morseOutput = document.getElementById("morseOutput");
+
+    /*
+      Converts Morse into the meow format.
+
+      The stream is split into groups of four.
+      Only the final group is padded with uppercase letters.
+    */
+    function convertMorseToMeow(morseStream) {
+      const groups = [];
+
+      for (let position = 0; position < morseStream.length; position += 4) {
+        const group = morseStream.slice(position, position + 4);
+        let encodedGroup = "";
+
+        for (let i = 0; i < group.length; i++) {
+          const meowLetter = "meow"[i];
+
+          if (group[i] === ".") {
+            encodedGroup += meowLetter.toLowerCase();
+          } else {
+            encodedGroup += meowLetter.toUpperCase();
+          }
+        }
+
+        // Pad only the final group.
+        if (position + 4 >= morseStream.length) {
+          while (encodedGroup.length < 4) {
+            encodedGroup += "MEOW"[encodedGroup.length];
+          }
+        }
+
+        groups.push(encodedGroup);
+      }
+
+      return groups.join(" ");
+    }
+
+    function encodeWord(word) {
+      const morseStream = [...word]
+        .map(character => MORSE_TABLE[character] || "")
+        .join("");
+
+      if (!morseStream) {
+        return "";
+      }
+
+      return convertMorseToMeow(morseStream);
+    }
+
+    function encodeText(text) {
+      return text
+        .toUpperCase()
+        .split(/\s+/)
+        .filter(Boolean)
+        .map(encodeWord)
+        .join(" / ");
+    }
+
+    function convertMeowToMorse(meowText) {
+      return [...meowText]
+        .filter(character => /[a-zA-Z]/.test(character))
+        .map(character => {
+          return character === character.toUpperCase() ? "-" : ".";
+        })
+        .join("");
+    }
+
+    function decodeWithSeparators(word) {
+      return word
+        .split("|")
+        .map(letterCode => {
+          const morseCode = convertMeowToMorse(letterCode.trim());
+          return REVERSE_MORSE_TABLE[morseCode] || "?";
+        })
+        .join("");
+    }
+
+    /*
+      Best-effort decoder for input without | separators.
+
+      Since the original letter boundaries are not included in the format,
+      this uses a greedy longest-match approach.
+    */
+    function decodeWithoutSeparators(word) {
+      const meowStream = word.replace(/\s+/g, "");
+      const morseStream = convertMeowToMorse(meowStream);
+
+      let result = "";
+      let position = 0;
+
+      while (position < morseStream.length) {
+        let foundLetter = false;
+
+        for (let length = 5; length >= 1; length--) {
+          const part = morseStream.slice(position, position + length);
+          const letter = REVERSE_MORSE_TABLE[part];
+
+          if (letter) {
+            result += letter;
+            position += length;
+            foundLetter = true;
+            break;
+          }
+        }
+
+        if (!foundLetter) {
+          result += "?";
+          position++;
+        }
+      }
+
+      return result;
+    }
+
+    function decodeWord(word) {
+      const trimmedWord = word.trim();
+
+      if (!trimmedWord) {
+        return "";
+      }
+
+      if (trimmedWord.includes("|")) {
+        return decodeWithSeparators(trimmedWord);
+      }
+
+      return decodeWithoutSeparators(trimmedWord);
+    }
+
+    function decodeText(text) {
+      return text
+        .split("/")
+        .map(decodeWord)
+        .join(" ");
+    }
+
+    normalInput.addEventListener("input", () => {
+      const encodedText = encodeText(normalInput.value);
+
+      normalOutput.textContent = encodedText;
+
+      morseInput.value = encodedText;
+      morseOutput.textContent = decodeText(encodedText);
+    });
+
+    morseInput.addEventListener("input", () => {
+      const decodedText = decodeText(morseInput.value);
+
+      morseOutput.textContent = decodedText;
+
+      normalInput.value = decodedText;
+      normalOutput.textContent = encodeText(decodedText);
+    });
+  </script>
+</body>
+</html>
